@@ -102,35 +102,42 @@ class MainWindow(QWidget):
         self.port_dropdown.setCurrentIndex(0)
 
     def connect_to_port(self):
+        global arduino
         selected_port = self.port_dropdown.currentData()
         if selected_port:
             print(f"Connecting to: {selected_port}")
+            arduino = serial.Serial(port=selected_port, baudrate=9600, timeout=1)
             self.start_button.setDisabled(False)
             self.start_button.setStyleSheet("background-color: green; color: white;")
+            self.connect_button.setDisabled(True)
 
     def start_action(self):
         print("Start button pressed")
+        arduino.write(b's')
+        print("Sent: s")
         self.refresh_button.setDisabled(True)
         self.connect_button.setDisabled(True)
         self.port_dropdown.setDisabled(True)
         self.start_button.setDisabled(True)
         self.start_button.setStyleSheet("")
-        self.sensor_label.setText("Temperature: 36°C")
-        self.sensor_label2.setText("Humidity: 41%")
+        # self.sensor_label.setText("Temperature: 36°C")
+        # self.sensor_label2.setText("Humidity: 41%")
 
-        self.fan_label.setText("Fan: ON")
-        self.fan_label.setStyleSheet("color: white; background-color: green; padding: 4px;")
-
-        self.heater_label.setText("Heater: ON")
-        self.heater_label.setStyleSheet("color: white; background-color: green; padding: 4px;")
-
-        self.exhaust_label.setText("Exhaust: ON")
-        self.exhaust_label.setStyleSheet("color: white; background-color: green; padding: 4px;")
+        # self.fan_label.setText("Fan: ON")
+        # self.fan_label.setStyleSheet("color: white; background-color: green; padding: 4px;")
+        #
+        # self.heater_label.setText("Heater: ON")
+        # self.heater_label.setStyleSheet("color: white; background-color: green; padding: 4px;")
+        #
+        # self.exhaust_label.setText("Exhaust: ON")
+        # self.exhaust_label.setStyleSheet("color: white; background-color: green; padding: 4px;")
 
         self.time_elapsed = 0
         self.timer.start(1000)
 
     def update_timer(self):
+        temp = ""
+        hum = ""
         self.time_elapsed += 1
 
         hours = self.time_elapsed // 3600
@@ -140,6 +147,46 @@ class MainWindow(QWidget):
         time_string = f"{hours:02}:{minutes:02}:{seconds:02}"
         self.timer_label.setText(f"Time: {time_string}")
 
+        if arduino.in_waiting:
+            try:
+                line = arduino.readline().decode('utf-8').strip()
+                print(f"Received: {line}")
+
+                if line.startswith("Temperature:"):
+                    temp = line.split("Temperature:")[1].strip()
+                    self.sensor_label.setText(f"Temperature: {temp}°C")
+                elif line.startswith("Humidity:"):
+                    hum = line.split("Humidity:")[1].strip()
+                    self.sensor_label2.setText(f"Humidity: {hum}°C")
+
+                if temp:
+                    if (float(temp) < 60):
+                        self.fan_label.setText("Fan: ON")
+                        self.fan_label.setStyleSheet("color: white; background-color: green; padding: 4px;")
+
+                        self.heater_label.setText("Heater: ON")
+                        self.heater_label.setStyleSheet("color: white; background-color: green; padding: 4px;")
+
+                        self.exhaust_label.setText("Exhaust: OFF")
+                        self.exhaust_label.setStyleSheet("color: white; background-color: red; padding: 4px;")
+
+                    else:
+                        self.fan_label.setText("Fan: OFF")
+                        self.fan_label.setStyleSheet("color: white; background-color: red; padding: 4px;")
+
+                        self.heater_label.setText("Heater: OFF")
+                        self.heater_label.setStyleSheet("color: white; background-color: red; padding: 4px;")
+
+                        self.exhaust_label.setText("Exhaust: ON")
+                        self.exhaust_label.setStyleSheet("color: white; background-color: green; padding: 4px;")
+
+                # if line.startswith("Temperature:") in line:
+                #     parts = line.split()
+                #     temp = parts[0][2:]  # After "T:"
+                #     self.sensor_label.setText(f"Temperature: {temp}°C")
+                #     self.sensor_label2.setText(f"Humidity: {hum}%")
+            except Exception as e:
+                print(f"Serial read error: {e}")
 
 app = QApplication(sys.argv)
 window = MainWindow()
